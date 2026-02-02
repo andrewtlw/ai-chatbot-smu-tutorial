@@ -1,15 +1,53 @@
-# AI Chatbot Tutorial
+# Groq AI Chatbot Tutorial
 
-This tutorial walks you through the key components of this AI chatbot application and shows you how to extend it.
+This tutorial walks you through building an AI chatbot powered by Groq's ultra-fast inference. You'll learn how to leverage Groq's unique features including compound models with web search, reasoning effort controls, and blazing-fast open-source models.
 
 ## Table of Contents
 
-1. [Understanding the Architecture](#understanding-the-architecture)
-2. [How Chat Messages Work](#how-chat-messages-work)
-3. [Adding a New AI Provider](#adding-a-new-ai-provider)
-4. [Creating Custom Tools](#creating-custom-tools)
-5. [Modifying the System Prompt](#modifying-the-system-prompt)
-6. [Using Research Mode](#using-research-mode)
+1. [Getting Started with Groq](#getting-started-with-groq)
+2. [Understanding the Architecture](#understanding-the-architecture)
+3. [Groq Models Overview](#groq-models-overview)
+4. [Using Compound Models (Web Search)](#using-compound-models-web-search)
+5. [Configuring Reasoning Effort](#configuring-reasoning-effort)
+6. [Provider Options & Advanced Features](#provider-options--advanced-features)
+7. [Creating Custom Tools](#creating-custom-tools)
+8. [Research Mode Deep Dive](#research-mode-deep-dive)
+
+---
+
+## Getting Started with Groq
+
+### Prerequisites
+
+1. Get a free Groq API key at [console.groq.com](https://console.groq.com)
+2. Node.js 18+ installed
+3. pnpm package manager
+
+### Quick Setup
+
+```bash
+# Clone and install
+git clone <repo-url>
+cd ai-chatbot-smu-tutorial
+pnpm install
+
+# Configure environment
+cp .env.example .env.local
+```
+
+Add your Groq API key to `.env.local`:
+
+```bash
+GROQ_API_KEY=gsk_your-key-here
+```
+
+### Run the App
+
+```bash
+pnpm dev
+```
+
+Visit `http://localhost:3000` to start chatting!
 
 ---
 
@@ -19,176 +57,373 @@ This tutorial walks you through the key components of this AI chatbot applicatio
 
 | File | Purpose |
 |------|---------|
+| `lib/ai/providers.ts` | Groq provider configuration |
+| `lib/ai/models.ts` | Available models list |
+| `lib/ai/research/config.ts` | Research pipeline settings |
 | `app/(chat)/api/chat/route.ts` | Main chat API endpoint |
-| `lib/ai/providers.ts` | AI model configuration |
-| `lib/ai/prompts.ts` | System prompts |
-| `lib/db/schema.ts` | Database schema |
-| `lib/db/queries.ts` | Database operations |
-| `components/chat.tsx` | Main chat UI component |
+| `app/(chat)/api/research/route.ts` | Research mode endpoint |
 
 ### Request Flow
 
 1. User sends a message via the chat UI
-2. Message hits `/api/chat` endpoint
-3. Server streams response using AI SDK
-4. Messages are saved to SQLite database
-5. UI updates in real-time via streaming
+2. Message hits `/api/chat` (or `/api/research` for research mode)
+3. Groq processes the request with ultra-low latency
+4. Response streams back to the UI in real-time
+5. Messages are saved to local SQLite database
 
 ---
 
-## How Chat Messages Work
+## Groq Models Overview
 
-### The Chat API (`app/(chat)/api/chat/route.ts`)
+Groq offers several model categories, all with industry-leading inference speed:
 
-The chat endpoint handles message processing:
+### Compound Models (Web Search Enabled)
 
-```typescript
-// Simplified example
-export async function POST(request: Request) {
-  const { message, selectedChatModel } = await request.json();
+These models have built-in Tavily web search:
 
-  // Stream AI response
-  const stream = createUIMessageStream({
-    execute: async ({ writer }) => {
-      const result = streamText({
-        model: getLanguageModel(selectedChatModel),
-        system: systemPrompt({ selectedChatModel }),
-        messages: [...previousMessages, message],
-      });
+| Model ID | Speed | Best For |
+|----------|-------|----------|
+| `groq/compound-mini` | Fastest | Quick research, simple queries |
+| `groq/compound` | Fast | Thorough research, complex topics |
 
-      writer.merge(result.toUIMessageStream());
-    },
-  });
+### Open-Source Models via Groq
 
-  return createUIMessageStreamResponse({ stream });
-}
-```
+| Model ID | Size | Best For |
+|----------|------|----------|
+| `openai/gpt-oss-120b` | 120B | Complex reasoning, long-form content |
+| `openai/gpt-oss-20b` | 20B | Balanced speed/quality, structured output |
+| `moonshotai/kimi-k2-instruct` | - | Instruction following |
+| `llama-3.3-70b-versatile` | 70B | General purpose (default fallback) |
 
-### Database Schema (`lib/db/schema.ts`)
-
-Messages are stored with this structure:
+### Configuring Models (`lib/ai/models.ts`)
 
 ```typescript
-export const message = sqliteTable("Message", {
-  id: text("id").primaryKey(),
-  chatId: text("chatId").notNull(),
-  role: text("role").notNull(),  // "user" | "assistant"
-  parts: text("parts", { mode: "json" }).notNull(),
-  createdAt: integer("createdAt", { mode: "timestamp" }).notNull(),
-});
-```
+// Change the default model
+export const DEFAULT_CHAT_MODEL = "openai/gpt-oss-120b";
 
----
-
-## Adding a New AI Provider
-
-### Step 1: Install the Provider
-
-```bash
-pnpm add @ai-sdk/openai  # Example: Adding OpenAI
-```
-
-### Step 2: Update Providers (`lib/ai/providers.ts`)
-
-```typescript
-import { createOpenAI } from "@ai-sdk/openai";
-
-// Add after existing providers
-const openai = createOpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-// Add to the chatModels array
+// Add a new Groq model
 export const chatModels: ChatModel[] = [
-  // ... existing models
   {
-    id: "gpt-4o",
-    name: "GPT-4o",
-    provider: "openai",
-    description: "OpenAI's latest model",
+    id: "llama-3.3-70b-versatile",
+    name: "LLaMA 3.3 70B",
+    provider: "groq",
+    description: "Fast general-purpose model",
   },
+  // ... other models
 ];
-
-// Update getLanguageModel function
-export function getLanguageModel(model: string) {
-  if (model.startsWith("gpt-")) {
-    return openai(model);
-  }
-  // ... existing logic
-}
 ```
 
-### Step 3: Add Environment Variable
+---
 
-```bash
-# .env.local
-OPENAI_API_KEY=sk-your-key-here
+## Using Compound Models (Web Search)
+
+Compound models are Groq's unique offering that combines LLM capabilities with real-time web search.
+
+### How They Work
+
+1. Model analyzes your query
+2. Automatically searches the web if needed
+3. Synthesizes search results into a coherent response
+4. Returns answer with inline citations
+
+### Important: Compound Model Limitations
+
+Compound models do **not** support tool calling. The app automatically disables tools when using compound models:
+
+```typescript
+// In app/(chat)/api/chat/route.ts
+const isCompoundModel = selectedChatModel.includes("compound");
+const supportsTools = !isReasoningModel && !isCompoundModel;
+
+const result = streamText({
+  model: getLanguageModel(selectedChatModel),
+  // Tools are conditionally enabled
+  tools: supportsTools ? { getWeather, createDocument, ... } : undefined,
+});
+```
+
+### Using Compound Models in Code
+
+```typescript
+import { createGroq } from "@ai-sdk/groq";
+
+const groq = createGroq({
+  apiKey: process.env.GROQ_API_KEY,
+});
+
+// Use the full model ID
+const result = await generateText({
+  model: groq("groq/compound-mini"),
+  prompt: "What are the latest developments in AI?",
+});
+```
+
+---
+
+## Configuring Reasoning Effort
+
+For models that support extended thinking, you can control how much reasoning effort the model applies.
+
+### Provider Options for Reasoning
+
+```typescript
+import { streamText } from "ai";
+import { createGroq } from "@ai-sdk/groq";
+
+const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
+
+const result = await streamText({
+  model: groq("openai/gpt-oss-120b"),
+  prompt: "Solve this complex math problem...",
+
+  // Groq-specific provider options
+  providerOptions: {
+    groq: {
+      // Control reasoning effort (low, medium, high)
+      reasoningEffort: "high",
+    },
+  },
+});
+```
+
+### Reasoning Effort Levels
+
+| Level | Use Case | Token Usage |
+|-------|----------|-------------|
+| `low` | Simple queries, quick answers | Minimal |
+| `medium` | Balanced reasoning | Moderate |
+| `high` | Complex problems, detailed analysis | Higher |
+
+### Adding Reasoning Effort to the Chat Route
+
+To add user-configurable reasoning effort, modify `app/(chat)/api/chat/route.ts`:
+
+```typescript
+// 1. Update the request schema to accept reasoningEffort
+// In app/(chat)/api/chat/schema.ts
+export const postRequestBodySchema = z.object({
+  // ... existing fields
+  reasoningEffort: z.enum(["low", "medium", "high"]).optional(),
+});
+
+// 2. Use it in the route
+const { reasoningEffort } = requestBody;
+
+const result = streamText({
+  model: getLanguageModel(selectedChatModel),
+  system: systemPrompt({ selectedChatModel, requestHints }),
+  messages: modelMessages,
+
+  providerOptions: {
+    groq: {
+      ...(reasoningEffort && { reasoningEffort }),
+    },
+  },
+});
+```
+
+---
+
+## Provider Options & Advanced Features
+
+### All Groq Provider Options
+
+```typescript
+const result = await streamText({
+  model: groq("llama-3.3-70b-versatile"),
+  prompt: "Your prompt here",
+
+  providerOptions: {
+    groq: {
+      // Reasoning effort for complex tasks
+      reasoningEffort: "high",
+
+      // Custom stop sequences
+      stop: ["\n\nHuman:", "\n\nAssistant:"],
+
+      // Response format (for structured output)
+      responseFormat: { type: "json_object" },
+    },
+  },
+
+  // Standard AI SDK options
+  maxTokens: 4096,
+  temperature: 0.7,
+  topP: 0.9,
+});
+```
+
+### Structured Output with Groq
+
+Some Groq models support structured JSON output:
+
+```typescript
+import { generateObject } from "ai";
+import { z } from "zod";
+
+const result = await generateObject({
+  model: groq("openai/gpt-oss-20b"),  // Supports structured output
+  schema: z.object({
+    title: z.string(),
+    summary: z.string(),
+    tags: z.array(z.string()),
+  }),
+  prompt: "Analyze this article...",
+});
+
+console.log(result.object);  // Typed object
+```
+
+### Enabling Extended Thinking (Anthropic-style)
+
+For reasoning models, enable extended thinking:
+
+```typescript
+const result = streamText({
+  model: getLanguageModel("anthropic/claude-3.7-sonnet-thinking"),
+  messages: modelMessages,
+
+  providerOptions: {
+    anthropic: {
+      thinking: {
+        type: "enabled",
+        budgetTokens: 10_000,  // Max tokens for thinking
+      },
+    },
+  },
+});
 ```
 
 ---
 
 ## Creating Custom Tools
 
-Tools let the AI perform actions like fetching data or creating documents.
+Tools let the AI perform actions. Note: Not supported by compound models.
 
-### Step 1: Define the Tool (`lib/ai/tools/my-tool.ts`)
+### Define a Tool
 
 ```typescript
+// lib/ai/tools/search-docs.ts
 import { tool } from "ai";
 import { z } from "zod";
 
-export const myCustomTool = tool({
-  description: "Describe what this tool does",
+export const searchDocs = tool({
+  description: "Search the documentation for relevant information",
   parameters: z.object({
     query: z.string().describe("The search query"),
+    limit: z.number().optional().describe("Max results to return"),
   }),
-  execute: async ({ query }) => {
-    // Your logic here
-    const result = await fetchSomeData(query);
-    return result;
+  execute: async ({ query, limit = 5 }) => {
+    // Your search logic here
+    const results = await searchDocumentation(query, limit);
+    return results;
   },
 });
 ```
 
-### Step 2: Register in Chat Route
+### Register the Tool
 
 In `app/(chat)/api/chat/route.ts`:
 
 ```typescript
-import { myCustomTool } from "@/lib/ai/tools/my-tool";
+import { searchDocs } from "@/lib/ai/tools/search-docs";
 
-// In the streamText call
 const result = streamText({
-  // ...
-  tools: {
+  model: getLanguageModel(selectedChatModel),
+  tools: supportsTools ? {
     getWeather,
     createDocument,
-    myCustomTool,  // Add your tool
-  },
+    searchDocs,  // Add your tool
+  } : undefined,
 });
 ```
 
 ---
 
-## Modifying the System Prompt
+## Research Mode Deep Dive
 
-### Edit `lib/ai/prompts.ts`
+Research mode uses a multi-stage pipeline for thorough research.
+
+### Pipeline Stages
+
+1. **Query Rewriting**: Expands user query into better search terms
+2. **Web Search**: Uses compound model to search the web
+3. **Synthesis**: Combines results into a comprehensive answer
+
+### Configuration (`lib/ai/research/config.ts`)
 
 ```typescript
-export const regularPrompt = `You are a friendly assistant! Keep your responses concise and helpful.
+export const researchConfig = {
+  models: {
+    // Query expansion - fast model for rewriting
+    queryRewriter: "openai/gpt-oss-20b",
 
-// Add your custom instructions here
-When the user asks about [topic], always [do something specific].
+    // Web search - compound model with Tavily
+    // "groq/compound-mini" = faster, "groq/compound" = more thorough
+    webSearch: "groq/compound",
+
+    // Final synthesis - larger model for quality
+    synthesis: "openai/gpt-oss-120b",
+  },
+
+  maxQueryLength: 2000,
+  maxDuration: 120,
+};
+```
+
+### Customizing the Research Pipeline
+
+To modify how research works, edit `app/(chat)/api/research/route.ts`:
+
+```typescript
+// Change the synthesis prompt
+const synthesisPrompt = `
+You are a research assistant. Based on the search results below,
+provide a comprehensive answer with citations.
+
+Search Results:
+${searchResults}
+
+User Question: ${query}
+
+Instructions:
+- Cite sources using [1], [2], etc.
+- Be thorough but concise
+- Highlight key findings
 `;
 ```
 
-### Model-Specific Prompts
+---
+
+## Common Customizations
+
+### Switch Default Model
 
 ```typescript
+// lib/ai/models.ts
+export const DEFAULT_CHAT_MODEL = "groq/compound-mini";
+```
+
+### Adjust Rate Limits
+
+```typescript
+// lib/ai/entitlements.ts
+export const entitlementsByUserType = {
+  guest: { maxMessagesPerDay: 20 },
+  regular: { maxMessagesPerDay: 200 },
+};
+```
+
+### Add Model-Specific System Prompts
+
+```typescript
+// lib/ai/prompts.ts
 export const systemPrompt = ({ selectedChatModel }) => {
-  // Different prompts for different models
-  if (selectedChatModel.includes("reasoning")) {
-    return `${regularPrompt}\n\nThink step by step.`;
+  if (selectedChatModel.includes("compound")) {
+    return `${regularPrompt}
+
+You have web search capabilities. When asked about current events
+or facts you're unsure about, search the web for accurate information.`;
   }
 
   return `${regularPrompt}\n\n${artifactsPrompt}`;
@@ -197,73 +432,42 @@ export const systemPrompt = ({ selectedChatModel }) => {
 
 ---
 
-## Using Research Mode
+## Troubleshooting
 
-Research mode uses Groq for fast web search-augmented responses.
+### "Model not found" Error
 
-### How It Works
-
-1. User enables "Research" toggle in the chat UI
-2. Message is routed to `/api/research` instead of `/api/chat`
-3. Groq performs web search and synthesizes results
-4. Response streams back with citations
-
-### Configuration (`lib/ai/research/config.ts`)
-
+Ensure you're using the full model ID with prefix:
 ```typescript
-export const researchConfig = {
-  model: "groq/compound-mini",  // Groq's search-enabled model
-  maxTokens: 4096,
-};
+// ✅ Correct
+groq("groq/compound-mini")
+groq("openai/gpt-oss-120b")
+
+// ❌ Incorrect
+groq("compound-mini")
 ```
 
-### Enabling Research Mode
+### Tool Calls Not Working
 
-Ensure you have a Groq API key in your `.env.local`:
-
-```bash
-GROQ_API_KEY=gsk_your-key-here
-```
-
----
-
-## Common Customizations
-
-### Change the Default Model
-
-In `lib/ai/models.ts`:
-
+Check if you're using a compound model - they don't support tools:
 ```typescript
-export const DEFAULT_CHAT_MODEL = "grok-2-1212";  // Change this
+const isCompoundModel = modelId.includes("compound");
+if (isCompoundModel) {
+  console.log("Tools disabled for compound models");
+}
 ```
 
-### Modify Rate Limits
+### Slow Responses
 
-In `lib/ai/entitlements.ts`:
-
-```typescript
-export const entitlementsByUserType = {
-  guest: { maxMessagesPerDay: 10 },
-  regular: { maxMessagesPerDay: 100 },
-};
-```
-
-### Add New Message Types
-
-In `lib/types.ts`, extend the message parts:
-
-```typescript
-export type MessagePart =
-  | { type: "text"; text: string }
-  | { type: "image"; url: string }
-  | { type: "custom"; data: unknown };  // Add new types
-```
+- Use `groq/compound-mini` instead of `groq/compound` for faster search
+- Use `openai/gpt-oss-20b` instead of `120b` for faster inference
+- Lower `reasoningEffort` for simpler queries
 
 ---
 
 ## Next Steps
 
-- Explore the `components/` folder to understand the UI
-- Check `tests/` for example usage patterns
-- Read the [AI SDK docs](https://ai-sdk.dev) for advanced features
-- Try deploying to Vercel for production use
+- Explore the [Groq Documentation](https://console.groq.com/docs)
+- Check the [AI SDK Documentation](https://ai-sdk.dev)
+- Try different model combinations in research config
+- Build custom tools for your specific use case
+- Deploy to Vercel for production use
