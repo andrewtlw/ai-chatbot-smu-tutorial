@@ -40,8 +40,9 @@ export const myProvider = isTestEnvironment
     })()
   : null;
 
-// Models that should be routed through Groq API
+// Models that should be routed through Groq API (pass full model ID as-is)
 const GROQ_MODELS = new Set([
+  "groq/compound",
   "groq/compound-mini",
   "openai/gpt-oss-120b",
   "openai/gpt-oss-20b",
@@ -53,12 +54,9 @@ export function getLanguageModel(modelId: string) {
     return myProvider.languageModel(modelId);
   }
 
-  // Route Groq models through Groq API
+  // Route Groq models through Groq API (keep full model ID)
   if (GROQ_MODELS.has(modelId)) {
-    const groqModelId = modelId.startsWith("groq/")
-      ? modelId.replace("groq/", "")
-      : modelId;
-    return groq(groqModelId);
+    return groq(modelId);
   }
 
   // If no gateway key, route everything through Groq

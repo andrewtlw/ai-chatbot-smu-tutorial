@@ -231,6 +231,24 @@
   outline: none;
 }
 
+/* ProseMirror table styles */
+.ProseMirror table.prose-table {
+  @apply w-full border-collapse my-4;
+}
+
+.ProseMirror table.prose-table th,
+.ProseMirror table.prose-table td {
+  @apply border border-border px-3 py-2 text-left;
+}
+
+.ProseMirror table.prose-table th {
+  @apply bg-muted font-semibold;
+}
+
+.ProseMirror table.prose-table tr:nth-child(even) td {
+  @apply bg-muted/30;
+}
+
 .cm-editor,
 .cm-gutters {
   @apply bg-background! dark:bg-zinc-800! outline-hidden! selection:bg-zinc-900!;

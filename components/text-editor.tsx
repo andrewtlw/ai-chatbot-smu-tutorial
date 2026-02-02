@@ -8,12 +8,12 @@ import { memo, useEffect, useRef } from "react";
 
 import type { Suggestion } from "@/lib/db/schema";
 import {
+  buildContentFromDocument,
   documentSchema,
   handleTransaction,
   headingRule,
 } from "@/lib/editor/config";
 import {
-  buildContentFromDocument,
   buildDocumentFromContent,
   createDecorations,
 } from "@/lib/editor/functions";

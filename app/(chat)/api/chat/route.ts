@@ -184,6 +184,10 @@ export async function POST(request: Request) {
       selectedChatModel.includes("reasoning") ||
       selectedChatModel.includes("thinking");
 
+    // Compound models don't support tool calling
+    const isCompoundModel = selectedChatModel.includes("compound");
+    const supportsTools = !isReasoningModel && !isCompoundModel;
+
     const modelMessages = await convertToModelMessages(uiMessages);
 
     const stream = createUIMessageStream({
@@ -194,14 +198,14 @@ export async function POST(request: Request) {
           system: systemPrompt({ selectedChatModel, requestHints }),
           messages: modelMessages,
           stopWhen: stepCountIs(5),
-          experimental_activeTools: isReasoningModel
-            ? []
-            : [
+          experimental_activeTools: supportsTools
+            ? [
                 "getWeather",
                 "createDocument",
                 "updateDocument",
                 "requestSuggestions",
-              ],
+              ]
+            : [],
           providerOptions: isReasoningModel
             ? {
                 anthropic: {
@@ -209,12 +213,14 @@ export async function POST(request: Request) {
                 },
               }
             : undefined,
-          tools: {
-            getWeather,
-            createDocument: createDocument({ session, dataStream }),
-            updateDocument: updateDocument({ session, dataStream }),
-            requestSuggestions: requestSuggestions({ session, dataStream }),
-          },
+          tools: supportsTools
+            ? {
+                getWeather,
+                createDocument: createDocument({ session, dataStream }),
+                updateDocument: updateDocument({ session, dataStream }),
+                requestSuggestions: requestSuggestions({ session, dataStream }),
+              }
+            : undefined,
           experimental_telemetry: {
             isEnabled: isProductionEnvironment,
             functionId: "stream-text",
