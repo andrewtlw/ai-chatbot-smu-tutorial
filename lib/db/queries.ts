@@ -1,5 +1,8 @@
 import "server-only";
 
+import { existsSync, mkdirSync } from "node:fs";
+import { join } from "node:path";
+import Database from "better-sqlite3";
 import {
   and,
   asc,
@@ -12,8 +15,7 @@ import {
   lt,
   type SQL,
 } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
+import { drizzle } from "drizzle-orm/better-sqlite3";
 import type { ArtifactKind } from "@/components/artifact";
 import type { VisibilityType } from "@/components/visibility-selector";
 import { ChatSDKError } from "../errors";
@@ -33,13 +35,16 @@ import {
 } from "./schema";
 import { generateHashedPassword } from "./utils";
 
-// Optionally, if not using email/pass login, you can
-// use the Drizzle adapter for Auth.js / NextAuth
-// https://authjs.dev/reference/adapter/drizzle
+// Ensure data directory exists
+const dataDir = join(process.cwd(), "data");
+if (!existsSync(dataDir)) {
+  mkdirSync(dataDir, { recursive: true });
+}
 
-// biome-ignore lint: Forbidden non-null assertion.
-const client = postgres(process.env.POSTGRES_URL!);
-const db = drizzle(client);
+// Create SQLite database connection
+const sqlite = new Database(join(dataDir, "chat.db"));
+sqlite.pragma("journal_mode = WAL");
+const db = drizzle(sqlite);
 
 export async function getUser(email: string): Promise<User[]> {
   try {
@@ -167,7 +172,7 @@ export async function getChatsByUserId({
   try {
     const extendedLimit = limit + 1;
 
-    const query = (whereCondition?: SQL<any>) =>
+    const query = (whereCondition?: SQL<unknown>) =>
       db
         .select()
         .from(chat)
@@ -552,8 +557,7 @@ export async function getMessageCountByUserId({
           gte(message.createdAt, twentyFourHoursAgo),
           eq(message.role, "user")
         )
-      )
-      .execute();
+      );
 
     return stats?.count ?? 0;
   } catch (_error) {
@@ -589,8 +593,7 @@ export async function getStreamIdsByChatId({ chatId }: { chatId: string }) {
       .select({ id: stream.id })
       .from(stream)
       .where(eq(stream.chatId, chatId))
-      .orderBy(asc(stream.createdAt))
-      .execute();
+      .orderBy(asc(stream.createdAt));
 
     return streamIds.map(({ id }) => id);
   } catch (_error) {

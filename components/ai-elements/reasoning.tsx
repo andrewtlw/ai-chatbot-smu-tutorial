@@ -17,7 +17,6 @@ type ReasoningContextValue = {
   isStreaming: boolean;
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
-  duration: number | undefined;
 };
 
 const ReasoningContext = createContext<ReasoningContextValue | null>(null);
@@ -35,11 +34,9 @@ export type ReasoningProps = ComponentProps<typeof Collapsible> & {
   open?: boolean;
   defaultOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
-  duration?: number;
 };
 
 const AUTO_CLOSE_DELAY = 300;
-const MS_IN_S = 1000;
 
 export const Reasoning = memo(
   ({
@@ -48,7 +45,6 @@ export const Reasoning = memo(
     open,
     defaultOpen = true,
     onOpenChange,
-    duration: durationProp,
     children,
     ...props
   }: ReasoningProps) => {
@@ -57,25 +53,8 @@ export const Reasoning = memo(
       defaultProp: defaultOpen,
       onChange: onOpenChange,
     });
-    const [duration, setDuration] = useControllableState({
-      prop: durationProp,
-      defaultProp: undefined,
-    });
 
     const [hasAutoClosed, setHasAutoClosed] = useState(false);
-    const [startTime, setStartTime] = useState<number | null>(null);
-
-    // Track duration when streaming starts and ends
-    useEffect(() => {
-      if (isStreaming) {
-        if (startTime === null) {
-          setStartTime(Date.now());
-        }
-      } else if (startTime !== null) {
-        setDuration(Math.ceil((Date.now() - startTime) / MS_IN_S));
-        setStartTime(null);
-      }
-    }, [isStreaming, startTime, setDuration]);
 
     // Auto-open when streaming starts, auto-close when streaming ends (once only)
     useEffect(() => {
@@ -95,9 +74,7 @@ export const Reasoning = memo(
     };
 
     return (
-      <ReasoningContext.Provider
-        value={{ isStreaming, isOpen, setIsOpen, duration }}
-      >
+      <ReasoningContext.Provider value={{ isStreaming, isOpen, setIsOpen }}>
         <Collapsible
           className={cn("not-prose mb-2", className)}
           onOpenChange={handleOpenChange}
@@ -114,17 +91,14 @@ export const Reasoning = memo(
 export type ReasoningTriggerProps = ComponentProps<
   typeof CollapsibleTrigger
 > & {
-  getThinkingMessage?: (isStreaming: boolean, duration?: number) => ReactNode;
+  getThinkingMessage?: (isStreaming: boolean) => ReactNode;
 };
 
-const defaultGetThinkingMessage = (isStreaming: boolean, duration?: number) => {
-  if (isStreaming || duration === 0) {
+const defaultGetThinkingMessage = (isStreaming: boolean) => {
+  if (isStreaming) {
     return <Shimmer duration={1}>Thinking</Shimmer>;
   }
-  if (duration === undefined) {
-    return <span>Thought</span>;
-  }
-  return <span>{duration}s</span>;
+  return <span>Thought</span>;
 };
 
 export const ReasoningTrigger = memo(
@@ -134,7 +108,7 @@ export const ReasoningTrigger = memo(
     getThinkingMessage = defaultGetThinkingMessage,
     ...props
   }: ReasoningTriggerProps) => {
-    const { isStreaming, isOpen, duration } = useReasoning();
+    const { isStreaming, isOpen } = useReasoning();
 
     return (
       <CollapsibleTrigger
@@ -147,7 +121,7 @@ export const ReasoningTrigger = memo(
         {children ?? (
           <>
             <BrainIcon className="size-3" />
-            {getThinkingMessage(isStreaming, duration)}
+            {getThinkingMessage(isStreaming)}
             <ChevronDownIcon
               className={cn(
                 "size-2.5 transition-transform",
@@ -171,13 +145,31 @@ export const ReasoningContent = memo(
   ({ className, children, ...props }: ReasoningContentProps) => (
     <CollapsibleContent
       className={cn(
-        "mt-1.5 text-[11px] leading-relaxed",
+        "mt-1.5 text-xs leading-relaxed",
         "data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 text-muted-foreground outline-none data-[state=closed]:animate-out data-[state=open]:animate-in",
         className
       )}
       {...props}
     >
-      <div className="max-h-48 overflow-y-auto rounded-md border border-border/50 bg-muted/30 p-2.5 text-[11px] **:text-[11px] [&_li]:my-0 [&_ol]:my-1 [&_p]:my-0 [&_ul]:my-1">
+      <div
+        className={cn(
+          "max-h-64 overflow-y-auto rounded-lg border border-border/50 bg-muted/30 p-3",
+          "text-xs leading-relaxed",
+          // Markdown formatting
+          "[&_p]:my-1.5 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0",
+          "[&_ul]:my-2 [&_ul]:ml-4 [&_ul]:list-disc [&_ol]:my-2 [&_ol]:ml-4 [&_ol]:list-decimal",
+          "[&_li]:my-0.5",
+          "[&_strong]:font-semibold [&_strong]:text-foreground/80",
+          "[&_em]:italic",
+          "[&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[10px]",
+          "[&_pre]:my-2 [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-2 [&_pre]:overflow-x-auto",
+          "[&_pre_code]:bg-transparent [&_pre_code]:p-0",
+          "[&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:italic",
+          "[&_h1]:text-sm [&_h1]:font-semibold [&_h1]:my-2",
+          "[&_h2]:text-xs [&_h2]:font-semibold [&_h2]:my-1.5",
+          "[&_h3]:text-xs [&_h3]:font-medium [&_h3]:my-1"
+        )}
+      >
         <Streamdown>{children}</Streamdown>
       </div>
     </CollapsibleContent>

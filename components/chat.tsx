@@ -20,6 +20,7 @@ import {
 import { useArtifactSelector } from "@/hooks/use-artifact";
 import { useAutoResume } from "@/hooks/use-auto-resume";
 import { useChatVisibility } from "@/hooks/use-chat-visibility";
+import { useResearch } from "@/hooks/use-research";
 import type { Vote } from "@/lib/db/schema";
 import { ChatSDKError } from "@/lib/errors";
 import type { Attachment, ChatMessage } from "@/lib/types";
@@ -176,7 +177,9 @@ export function Chat({
   );
 
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [isResearchMode, setIsResearchMode] = useState(false);
   const isArtifactVisible = useArtifactSelector((state) => state.isVisible);
+  const { resetResearch } = useResearch();
 
   useAutoResume({
     autoResume,
@@ -213,8 +216,11 @@ export function Chat({
               attachments={attachments}
               chatId={id}
               input={input}
+              isResearchMode={isResearchMode}
               messages={messages}
               onModelChange={setCurrentModelId}
+              onResearchModeChange={setIsResearchMode}
+              onResetResearch={resetResearch}
               selectedModelId={currentModelId}
               selectedVisibilityType={visibilityType}
               sendMessage={sendMessage}

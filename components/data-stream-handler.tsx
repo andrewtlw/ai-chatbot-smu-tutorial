@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useSWRConfig } from "swr";
 import { unstable_serialize } from "swr/infinite";
 import { initialArtifactData, useArtifact } from "@/hooks/use-artifact";
+import { useResearch } from "@/hooks/use-research";
 import { artifactDefinitions } from "./artifact";
 import { useDataStream } from "./data-stream-provider";
 import { getChatHistoryPaginationKey } from "./sidebar-history";
@@ -13,6 +14,7 @@ export function DataStreamHandler() {
   const { mutate } = useSWRConfig();
 
   const { artifact, setArtifact, setMetadata } = useArtifact();
+  const { handleResearchData } = useResearch();
 
   useEffect(() => {
     if (!dataStream?.length) {
@@ -26,6 +28,12 @@ export function DataStreamHandler() {
       // Handle chat title updates
       if (delta.type === "data-chat-title") {
         mutate(unstable_serialize(getChatHistoryPaginationKey));
+        continue;
+      }
+
+      // Handle research pipeline data
+      if (delta.type.startsWith("data-research-")) {
+        handleResearchData(delta);
         continue;
       }
       const artifactDefinition = artifactDefinitions.find(
@@ -86,7 +94,15 @@ export function DataStreamHandler() {
         }
       });
     }
-  }, [dataStream, setArtifact, setMetadata, artifact, setDataStream, mutate]);
+  }, [
+    dataStream,
+    setArtifact,
+    setMetadata,
+    artifact,
+    setDataStream,
+    mutate,
+    handleResearchData,
+  ]);
 
   return null;
 }

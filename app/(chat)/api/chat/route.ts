@@ -1,14 +1,10 @@
-import { geolocation } from "@vercel/functions";
 import {
   convertToModelMessages,
   createUIMessageStream,
   createUIMessageStreamResponse,
-  generateId,
   stepCountIs,
   streamText,
 } from "ai";
-import { after } from "next/server";
-import { createResumableStreamContext } from "resumable-stream";
 import { auth, type UserType } from "@/app/(auth)/auth";
 import { entitlementsByUserType } from "@/lib/ai/entitlements";
 import { type RequestHints, systemPrompt } from "@/lib/ai/prompts";
@@ -19,7 +15,6 @@ import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
 import { updateDocument } from "@/lib/ai/tools/update-document";
 import { isProductionEnvironment } from "@/lib/constants";
 import {
-  createStreamId,
   deleteChatById,
   getChatById,
   getMessageCountByUserId,
@@ -38,16 +33,6 @@ import { type PostRequestBody, postRequestBodySchema } from "./schema";
 
 export const maxDuration = 60;
 
-function getStreamContext() {
-  try {
-    return createResumableStreamContext({ waitUntil: after });
-  } catch (_) {
-    return null;
-  }
-}
-
-export { getStreamContext };
-
 export async function POST(request: Request) {
   let requestBody: PostRequestBody;
 
@@ -59,8 +44,14 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { id, message, messages, selectedChatModel, selectedVisibilityType } =
-      requestBody;
+    const {
+      id,
+      message,
+      messages,
+      selectedChatModel,
+      selectedVisibilityType,
+      isResearchMode,
+    } = requestBody;
 
     const session = await auth();
 
@@ -77,6 +68,67 @@ export async function POST(request: Request) {
 
     if (messageCount > entitlementsByUserType[userType].maxMessagesPerDay) {
       return new ChatSDKError("rate_limit:chat").toResponse();
+    }
+
+    // Handle research mode - route to research pipeline
+    if (isResearchMode && message?.role === "user") {
+      const queryText = message.parts
+        .filter((p): p is { type: "text"; text: string } => p.type === "text")
+        .map((p) => p.text)
+        .join(" ");
+
+      // Check if chat exists, create if not (same as regular chat flow)
+      const existingChat = await getChatById({ id });
+      let titlePromise: Promise<string> | null = null;
+
+      if (!existingChat) {
+        await saveChat({
+          id,
+          userId: session.user.id,
+          title: "New chat",
+          visibility: selectedVisibilityType,
+        });
+        titlePromise = generateTitleFromUserMessage({ message });
+      }
+
+      // Save user message before research
+      await saveMessages({
+        messages: [
+          {
+            chatId: id,
+            id: message.id,
+            role: "user",
+            parts: message.parts,
+            attachments: [],
+            createdAt: new Date(),
+          },
+        ],
+      });
+
+      // Update title in background if this is a new chat
+      if (titlePromise) {
+        titlePromise.then((title) => {
+          updateChatTitleById({ chatId: id, title });
+        });
+      }
+
+      const researchResponse = await fetch(
+        new URL("/api/research", request.url),
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: request.headers.get("Cookie") || "",
+          },
+          body: JSON.stringify({
+            id: generateUUID(),
+            query: queryText,
+            chatId: id,
+          }),
+        }
+      );
+
+      return researchResponse;
     }
 
     const isToolApprovalFlow = Boolean(messages);
@@ -106,13 +158,11 @@ export async function POST(request: Request) {
       ? (messages as ChatMessage[])
       : [...convertToUIMessages(messagesFromDb), message as ChatMessage];
 
-    const { longitude, latitude, city, country } = geolocation(request);
-
     const requestHints: RequestHints = {
-      longitude,
-      latitude,
-      city,
-      country,
+      longitude: undefined,
+      latitude: undefined,
+      city: undefined,
+      country: undefined,
     };
 
     if (message?.role === "user") {
@@ -220,27 +270,7 @@ export async function POST(request: Request) {
       onError: () => "Oops, an error occurred!",
     });
 
-    return createUIMessageStreamResponse({
-      stream,
-      async consumeSseStream({ stream: sseStream }) {
-        if (!process.env.REDIS_URL) {
-          return;
-        }
-        try {
-          const streamContext = getStreamContext();
-          if (streamContext) {
-            const streamId = generateId();
-            await createStreamId({ streamId, chatId: id });
-            await streamContext.createNewResumableStream(
-              streamId,
-              () => sseStream
-            );
-          }
-        } catch (_) {
-          // ignore redis errors
-        }
-      },
-    });
+    return createUIMessageStreamResponse({ stream });
   } catch (error) {
     const vercelId = request.headers.get("x-vercel-id");
 

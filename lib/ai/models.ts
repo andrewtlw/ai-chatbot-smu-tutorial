@@ -1,5 +1,5 @@
 // Curated list of top models from Vercel AI Gateway
-export const DEFAULT_CHAT_MODEL = "google/gemini-2.5-flash-lite";
+export const DEFAULT_CHAT_MODEL = "openai/gpt-oss-120b";
 
 export type ChatModel = {
   id: string;
@@ -9,6 +9,37 @@ export type ChatModel = {
 };
 
 export const chatModels: ChatModel[] = [
+  // Groq (Fast inference models)
+  {
+    id: "groq/compound-mini",
+    name: "Compound Mini",
+    provider: "groq",
+    description: "Faster research with web search",
+  },
+  {
+    id: "groq/compound",
+    name: "Compound",
+    provider: "groq",
+    description: "Fast research with web search",
+  },
+  {
+    id: "openai/gpt-oss-120b",
+    name: "GPT OSS 120B",
+    provider: "groq",
+    description: "Large open-source model via Groq",
+  },
+  {
+    id: "openai/gpt-oss-20b",
+    name: "GPT OSS 20B",
+    provider: "groq",
+    description: "Efficient open-source model via Groq",
+  },
+  {
+    id: "moonshotai/kimi-k2-instruct",
+    name: "Kimi K2 Instruct",
+    provider: "groq",
+    description: "Moonshot AI model via Groq",
+  },
   // Anthropic
   {
     id: "anthropic/claude-haiku-4.5",

@@ -1,8 +1,11 @@
-import { put } from "@vercel/blob";
+import { existsSync } from "node:fs";
+import { mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { auth } from "@/app/(auth)/auth";
+import { generateUUID } from "@/lib/utils";
 
 // Use Blob instead of File since File is not available in Node.js environment
 const FileSchema = z.object({
@@ -16,6 +19,8 @@ const FileSchema = z.object({
       message: "File type should be JPEG or PNG",
     }),
 });
+
+const UPLOADS_DIR = join(process.cwd(), "public", "uploads");
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -46,19 +51,30 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: errorMessage }, { status: 400 });
     }
 
-    // Get filename from formData since Blob doesn't have name property
-    const filename = (formData.get("file") as File).name;
-    const fileBuffer = await file.arrayBuffer();
-
-    try {
-      const data = await put(`${filename}`, fileBuffer, {
-        access: "public",
-      });
-
-      return NextResponse.json(data);
-    } catch (_error) {
-      return NextResponse.json({ error: "Upload failed" }, { status: 500 });
+    // Ensure uploads directory exists
+    if (!existsSync(UPLOADS_DIR)) {
+      await mkdir(UPLOADS_DIR, { recursive: true });
     }
+
+    // Get original filename and generate unique name
+    const originalFilename = (formData.get("file") as File).name;
+    const extension = originalFilename.split(".").pop() || "bin";
+    const uniqueFilename = `${generateUUID()}.${extension}`;
+    const filePath = join(UPLOADS_DIR, uniqueFilename);
+
+    // Write file to disk
+    const fileBuffer = await file.arrayBuffer();
+    await writeFile(filePath, Buffer.from(fileBuffer));
+
+    // Return URL that matches Vercel Blob response format
+    const url = `/uploads/${uniqueFilename}`;
+
+    return NextResponse.json({
+      url,
+      pathname: uniqueFilename,
+      contentType: file.type,
+      contentDisposition: `attachment; filename="${originalFilename}"`,
+    });
   } catch (_error) {
     return NextResponse.json(
       { error: "Failed to process request" },

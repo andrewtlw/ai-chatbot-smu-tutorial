@@ -1,5 +1,3 @@
-import { registerOTel } from "@vercel/otel";
-
 export function register() {
-  registerOTel({ serviceName: "ai-chatbot" });
+  // OTEL disabled for local development
 }

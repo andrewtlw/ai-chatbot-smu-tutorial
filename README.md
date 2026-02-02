@@ -1,71 +1,74 @@
-<a href="https://chat.vercel.ai/">
-  <img alt="Next.js 14 and App Router-ready AI chatbot." src="app/(chat)/opengraph-image.png">
-  <h1 align="center">Chat SDK</h1>
-</a>
+# AI Chatbot Tutorial
 
-<p align="center">
-    Chat SDK is a free, open-source template built with Next.js and the AI SDK that helps you quickly build powerful chatbot applications.
-</p>
+A simple AI chatbot built with Next.js and the Vercel AI SDK. This tutorial project demonstrates how to build a conversational AI application with features like chat history, document creation, and research capabilities.
 
-<p align="center">
-  <a href="https://chat-sdk.dev"><strong>Read Docs</strong></a> ·
-  <a href="#features"><strong>Features</strong></a> ·
-  <a href="#model-providers"><strong>Model Providers</strong></a> ·
-  <a href="#deploy-your-own"><strong>Deploy Your Own</strong></a> ·
-  <a href="#running-locally"><strong>Running locally</strong></a>
-</p>
-<br/>
+## Quick Start
 
-## Features
+### Prerequisites
 
-- [Next.js](https://nextjs.org) App Router
-  - Advanced routing for seamless navigation and performance
-  - React Server Components (RSCs) and Server Actions for server-side rendering and increased performance
-- [AI SDK](https://ai-sdk.dev/docs/introduction)
-  - Unified API for generating text, structured objects, and tool calls with LLMs
-  - Hooks for building dynamic chat and generative user interfaces
-  - Supports xAI (default), OpenAI, Fireworks, and other model providers
-- [shadcn/ui](https://ui.shadcn.com)
-  - Styling with [Tailwind CSS](https://tailwindcss.com)
-  - Component primitives from [Radix UI](https://radix-ui.com) for accessibility and flexibility
-- Data Persistence
-  - [Neon Serverless Postgres](https://vercel.com/marketplace/neon) for saving chat history and user data
-  - [Vercel Blob](https://vercel.com/storage/blob) for efficient file storage
-- [Auth.js](https://authjs.dev)
-  - Simple and secure authentication
+- **Node.js 20** (recommended) - Higher versions may have compatibility issues with native modules
+  - Use `nvm use 20` if you have nvm installed
+  - The `.nvmrc` file specifies version 20
+- pnpm (`npm install -g pnpm`)
 
-## Model Providers
+### Setup
 
-This template uses the [Vercel AI Gateway](https://vercel.com/docs/ai-gateway) to access multiple AI models through a unified interface. The default configuration includes [xAI](https://x.ai) models (`grok-2-vision-1212`, `grok-3-mini`) routed through the gateway.
-
-### AI Gateway Authentication
-
-**For Vercel deployments**: Authentication is handled automatically via OIDC tokens.
-
-**For non-Vercel deployments**: You need to provide an AI Gateway API key by setting the `AI_GATEWAY_API_KEY` environment variable in your `.env.local` file.
-
-With the [AI SDK](https://ai-sdk.dev/docs/introduction), you can also switch to direct LLM providers like [OpenAI](https://openai.com), [Anthropic](https://anthropic.com), [Cohere](https://cohere.com/), and [many more](https://ai-sdk.dev/providers/ai-sdk-providers) with just a few lines of code.
-
-## Deploy Your Own
-
-You can deploy your own version of the Next.js AI Chatbot to Vercel with one click:
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/templates/next.js/nextjs-ai-chatbot)
-
-## Running locally
-
-You will need to use the environment variables [defined in `.env.example`](.env.example) to run Next.js AI Chatbot. It's recommended you use [Vercel Environment Variables](https://vercel.com/docs/projects/environment-variables) for this, but a `.env` file is all that is necessary.
-
-> Note: You should not commit your `.env` file or it will expose secrets that will allow others to control access to your various AI and authentication provider accounts.
-
-1. Install Vercel CLI: `npm i -g vercel`
-2. Link local instance with Vercel and GitHub accounts (creates `.vercel` directory): `vercel link`
-3. Download your environment variables: `vercel env pull`
+1. Clone the repository and install dependencies:
 
 ```bash
 pnpm install
-pnpm db:migrate # Setup database or apply latest database changes
+```
+
+2. Copy the environment file and add your API keys:
+
+```bash
+cp .env.example .env.local
+```
+
+3. Edit `.env.local` with your keys:
+
+```
+AUTH_SECRET=your-secret-here  # Generate with: openssl rand -base64 32
+AI_GATEWAY_API_KEY=your-key   # From https://vercel.com/ai-gateway
+GROQ_API_KEY=your-key         # Optional: From https://console.groq.com/keys
+```
+
+4. Run the development server:
+
+```bash
 pnpm dev
 ```
 
-Your app template should now be running on [localhost:3000](http://localhost:3000).
+5. Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+## Features
+
+- **Chat Interface** - Conversational AI with streaming responses
+- **Local SQLite Database** - No external database setup required
+- **Local File Storage** - Files stored in `public/uploads/`
+- **Research Mode** - Groq-powered web search pipeline (optional)
+- **Document Creation** - AI-generated code, text, and spreadsheets
+
+## Tech Stack
+
+- **Framework**: Next.js 16 with App Router
+- **AI**: Vercel AI SDK with xAI Grok models
+- **Database**: SQLite (via better-sqlite3 + Drizzle ORM)
+- **Styling**: Tailwind CSS + shadcn/ui
+- **Auth**: Auth.js (NextAuth)
+
+## Project Structure
+
+```
+app/              # Next.js app router pages and API routes
+components/       # React components
+lib/              # Utilities, database, and AI configuration
+  ├── ai/         # AI providers and prompts
+  ├── db/         # Database schema and queries
+data/             # SQLite database (auto-created)
+public/uploads/   # Uploaded files (auto-created)
+```
+
+## Learn More
+
+See [TUTORIAL.md](./TUTORIAL.md) for a step-by-step guide to understanding and extending this chatbot.

@@ -1,11 +1,13 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import { ArrowDownIcon } from "lucide-react";
 import { useMessages } from "@/hooks/use-messages";
+import { useResearch } from "@/hooks/use-research";
 import type { Vote } from "@/lib/db/schema";
 import type { ChatMessage } from "@/lib/types";
 import { useDataStream } from "./data-stream-provider";
 import { Greeting } from "./greeting";
 import { PreviewMessage, ThinkingMessage } from "./message";
+import { ResearchMessage } from "./research-message";
 
 type MessagesProps = {
   addToolApprovalResponse: UseChatHelpers<ChatMessage>["addToolApprovalResponse"];
@@ -43,6 +45,8 @@ function PureMessages({
 
   useDataStream();
 
+  const { research } = useResearch();
+
   return (
     <div className="relative flex-1">
       <div
@@ -75,7 +79,22 @@ function PureMessages({
             />
           ))}
 
+          {/* Research pipeline UI */}
+          {research.status && (
+            <div className="flex justify-start">
+              <div className="flex max-w-[calc(100%-2rem)] flex-col gap-4 rounded-xl bg-muted px-3 py-2 md:px-4 md:py-3.5">
+                <ResearchMessage
+                  rewrittenQuery={research.rewrittenQuery ?? undefined}
+                  searchResults={research.searchResults ?? undefined}
+                  sources={research.sources}
+                  status={research.status}
+                />
+              </div>
+            </div>
+          )}
+
           {status === "submitted" &&
+            !research.status &&
             !messages.some((msg) =>
               msg.parts?.some(
                 (part) => "state" in part && part.state === "approval-responded"

@@ -42,3 +42,9 @@ yarn-error.log*
 /playwright-report/
 /blob-report/
 /playwright/*
+
+# Local file uploads
+public/uploads/
+
+# SQLite database
+data/

@@ -1,4 +1,3 @@
-import type { Geo } from "@vercel/functions";
 import type { ArtifactKind } from "@/components/artifact";
 
 export const artifactsPrompt = `
@@ -42,19 +41,43 @@ export const regularPrompt = `You are a friendly assistant! Keep your responses 
 When asked to write, create, or help with something, just do it directly. Don't ask clarifying questions unless absolutely necessary - make reasonable assumptions and proceed with the task.`;
 
 export type RequestHints = {
-  latitude: Geo["latitude"];
-  longitude: Geo["longitude"];
-  city: Geo["city"];
-  country: Geo["country"];
+  latitude: string | undefined;
+  longitude: string | undefined;
+  city: string | undefined;
+  country: string | undefined;
 };
 
-export const getRequestPromptFromHints = (requestHints: RequestHints) => `\
-About the origin of user's request:
-- lat: ${requestHints.latitude}
-- lon: ${requestHints.longitude}
-- city: ${requestHints.city}
-- country: ${requestHints.country}
-`;
+export const getRequestPromptFromHints = (requestHints: RequestHints) => {
+  // If no geolocation data, return empty string
+  if (
+    !requestHints.latitude &&
+    !requestHints.longitude &&
+    !requestHints.city &&
+    !requestHints.country
+  ) {
+    return "";
+  }
+
+  const parts: string[] = [];
+  if (requestHints.latitude) {
+    parts.push(`- lat: ${requestHints.latitude}`);
+  }
+  if (requestHints.longitude) {
+    parts.push(`- lon: ${requestHints.longitude}`);
+  }
+  if (requestHints.city) {
+    parts.push(`- city: ${requestHints.city}`);
+  }
+  if (requestHints.country) {
+    parts.push(`- country: ${requestHints.country}`);
+  }
+
+  if (parts.length === 0) {
+    return "";
+  }
+
+  return `About the origin of user's request:\n${parts.join("\n")}\n`;
+};
 
 export const systemPrompt = ({
   selectedChatModel,

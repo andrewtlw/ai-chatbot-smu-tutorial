@@ -41,7 +41,7 @@ import {
   PromptInputToolbar,
   PromptInputTools,
 } from "./elements/prompt-input";
-import { ArrowUpIcon, PaperclipIcon, StopIcon } from "./icons";
+import { ArrowUpIcon, PaperclipIcon, SearchIcon, StopIcon } from "./icons";
 import { PreviewAttachment } from "./preview-attachment";
 import { SuggestedActions } from "./suggested-actions";
 import { Button } from "./ui/button";
@@ -68,6 +68,9 @@ function PureMultimodalInput({
   selectedVisibilityType,
   selectedModelId,
   onModelChange,
+  isResearchMode,
+  onResearchModeChange,
+  onResetResearch,
 }: {
   chatId: string;
   input: string;
@@ -83,6 +86,9 @@ function PureMultimodalInput({
   selectedVisibilityType: VisibilityType;
   selectedModelId: string;
   onModelChange?: (modelId: string) => void;
+  isResearchMode?: boolean;
+  onResearchModeChange?: (enabled: boolean) => void;
+  onResetResearch?: () => void;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
@@ -147,21 +153,31 @@ function PureMultimodalInput({
   const submitForm = useCallback(() => {
     window.history.pushState({}, "", `/chat/${chatId}`);
 
-    sendMessage({
-      role: "user",
-      parts: [
-        ...attachments.map((attachment) => ({
-          type: "file" as const,
-          url: attachment.url,
-          name: attachment.name,
-          mediaType: attachment.contentType,
-        })),
-        {
-          type: "text",
-          text: input,
-        },
-      ],
-    });
+    // Reset research state before sending new message in research mode
+    if (isResearchMode) {
+      onResetResearch?.();
+    }
+
+    sendMessage(
+      {
+        role: "user",
+        parts: [
+          ...attachments.map((attachment) => ({
+            type: "file" as const,
+            url: attachment.url,
+            name: attachment.name,
+            mediaType: attachment.contentType,
+          })),
+          {
+            type: "text",
+            text: input,
+          },
+        ],
+      },
+      {
+        body: { isResearchMode: isResearchMode ?? false },
+      }
+    );
 
     setAttachments([]);
     setLocalStorageInput("");
@@ -181,6 +197,8 @@ function PureMultimodalInput({
     width,
     chatId,
     resetHeight,
+    isResearchMode,
+    onResetResearch,
   ]);
 
   const uploadFile = useCallback(async (file: File) => {
@@ -384,6 +402,11 @@ function PureMultimodalInput({
               selectedModelId={selectedModelId}
               status={status}
             />
+            <ResearchModeButton
+              isResearchMode={isResearchMode ?? false}
+              onToggle={() => onResearchModeChange?.(!isResearchMode)}
+              status={status}
+            />
             <ModelSelectorCompact
               onModelChange={onModelChange}
               selectedModelId={selectedModelId}
@@ -426,6 +449,9 @@ export const MultimodalInput = memo(
     if (prevProps.selectedModelId !== nextProps.selectedModelId) {
       return false;
     }
+    if (prevProps.isResearchMode !== nextProps.isResearchMode) {
+      return false;
+    }
 
     return true;
   }
@@ -461,6 +487,42 @@ function PureAttachmentsButton({
 
 const AttachmentsButton = memo(PureAttachmentsButton);
 
+function PureResearchModeButton({
+  isResearchMode,
+  onToggle,
+  status,
+}: {
+  isResearchMode: boolean;
+  onToggle: () => void;
+  status: UseChatHelpers<ChatMessage>["status"];
+}) {
+  return (
+    <Button
+      className={cn(
+        "h-8 rounded-lg px-2 transition-all",
+        isResearchMode
+          ? "bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
+          : "hover:bg-accent"
+      )}
+      data-testid="research-mode-button"
+      disabled={status !== "ready"}
+      onClick={(event) => {
+        event.preventDefault();
+        onToggle();
+      }}
+      title={isResearchMode ? "Research mode on" : "Enable research mode"}
+      variant="ghost"
+    >
+      <SearchIcon size={14} />
+      {isResearchMode && (
+        <span className="ml-1 text-xs font-medium">Research</span>
+      )}
+    </Button>
+  );
+}
+
+const ResearchModeButton = memo(PureResearchModeButton);
+
 function PureModelSelectorCompact({
   selectedModelId,
   onModelChange,
@@ -482,6 +544,7 @@ function PureModelSelectorCompact({
     openai: "OpenAI",
     google: "Google",
     xai: "xAI",
+    groq: "Groq",
     reasoning: "Reasoning",
   };
 
