@@ -6,8 +6,8 @@ A simple AI chatbot built with Next.js and the Vercel AI SDK. This tutorial proj
 
 ### Prerequisites
 
-- **Node.js 20** (recommended) - Higher versions may have compatibility issues with native modules
-  - Use `nvm use 20` if you have nvm installed
+- **Node.js LTS (20/22/24)** - Non-LTS versions may fail native module installs
+  - Use `nvm use` if you have nvm installed
   - The `.nvmrc` file specifies version 20
 - pnpm (`npm install -g pnpm`)
 

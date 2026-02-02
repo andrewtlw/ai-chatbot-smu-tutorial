@@ -274,26 +274,6 @@ const result = await generateObject({
 console.log(result.object);  // Typed object
 ```
 
-### Enabling Extended Thinking (Anthropic-style)
-
-For reasoning models, enable extended thinking:
-
-```typescript
-const result = streamText({
-  model: getLanguageModel("anthropic/claude-3.7-sonnet-thinking"),
-  messages: modelMessages,
-
-  providerOptions: {
-    anthropic: {
-      thinking: {
-        type: "enabled",
-        budgetTokens: 10_000,  // Max tokens for thinking
-      },
-    },
-  },
-});
-```
-
 ---
 
 ## Creating Custom Tools
@@ -433,18 +413,6 @@ or facts you're unsure about, search the web for accurate information.`;
 ---
 
 ## Troubleshooting
-
-### "Model not found" Error
-
-Ensure you're using the full model ID with prefix:
-```typescript
-// ✅ Correct
-groq("groq/compound-mini")
-groq("openai/gpt-oss-120b")
-
-// ❌ Incorrect
-groq("compound-mini")
-```
 
 ### Tool Calls Not Working
 
